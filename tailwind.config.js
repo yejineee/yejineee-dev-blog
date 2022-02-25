@@ -95,7 +95,7 @@ module.exports = {
         },
         dark: {
           css: {
-            color: theme('colors.gray.300'),
+            color: theme('colors.gray.100'),
             a: {
               color: theme('colors.primary.500'),
               '&:hover': {
@@ -134,7 +134,7 @@ module.exports = {
             'ul li:before': {
               backgroundColor: theme('colors.gray.400'),
             },
-            strong: { color: theme('colors.gray.100') },
+            strong: { color: theme('colors.gray.50') },
             thead: {
               color: theme('colors.gray.100'),
             },
