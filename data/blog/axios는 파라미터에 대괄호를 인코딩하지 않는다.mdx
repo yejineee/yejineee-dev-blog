@@ -1,0 +1,287 @@
+---
+title: axios는 파라미터에 대괄호를 인코딩하지 않는다.
+date: 'February 25, 2022 9:40 PM'
+tags: ['Network']
+draft: false
+summary: 'axios가 그럴줄은 몰랐지'
+authors: []
+---
+
+- axios : v0.20.0
+
+# 😐 문제
+
+서비스 개발 중에 **대괄호를 포함한 값이 query value에 들어가면, 에러가 발생**하는 이슈가 있었다.
+
+## 네트워크 탭 살펴보기
+
+검색창에 대괄호를 포함한 값을 입력하고, API 요청과 응답값을 확인하였다.
+
+API 응답을 살펴보면, preflight에서는 400에 CORS 에러가 났고, 본 요청은 Network Error가 발생하고 있었다.
+
+- Preflight 요청
+    - CORS Error 발생
+    - production 환경이 아니라서 서버에서는 Access-Control-Allow-Origin을 전체 다 허용해준 것으로 알고 있는데, 왜 CORS 정책에 의해 막힌 것인지 잘 모르겠다. ~~짐작하기로는 서버에서 origin을 대괄호 안에 있는 15를 origin 으로 보아서 그런 것인가 싶다(아닐 것 같음..).~~
+    
+    ![Sheep-Screenshot 2022-02-25 PM 9.45.41.png](/static/images/axios-does-not-encode-square-bracket/Sheep-Screenshot_2022-02-25_PM_9.45.41.png)
+    
+- 본 요청
+    - Network Error 발생
+
+## 인코딩 되지 않는 파라미터
+
+여기서 이상한 점은 assetName의 value로 전송된 "bm_ad15[15]"가 **인코딩이 되지 않고 요청이 전송된다는 점**이었다.
+
+![Sheep-Screenshot 2022-02-25 PM 10.51.15.png](/static/images/axios-does-not-encode-square-bracket/Sheep-Screenshot_2022-02-25_PM_10.51.15.png)
+
+URL에서 path 뒤에 ?로 시작하고 &로 연결된 key-value 쌍을 `query string`이라고 하고, 각각의 key=value를 `parameter`라고 한다.
+
+- query strings
+    - ?key1=value1&key2=value2
+- parameter
+    - key1=value1
+    - key2=value2
+
+axios로 요청 시, request config의 params에 전송할 파라미터를 객체 형태로 전달하게 된다.
+
+```jsx
+  // `params` are the URL parameters to be sent with the request
+  // Must be a plain object or a URLSearchParams object
+  params: {
+    ID: 12345
+  },
+```
+
+이 때, 따로 serializer를 지정하지 않더라도, params에 넣은 객체들의 key-value는 인코딩이 되어서 요청이 전송된
+
+예를 들어, 검색창에 `who&lillie=yang` 를 검색한 후, 요청으로 전송된 url의 파라미터를 살펴보면 다음과 같이 인코딩된 것을 확인할 수 있다.
+
+```
+?assetType=AD_ACCOUNT&assetName=who%26lillie%3Dyang&size=30
+```
+
+사용자는 `who&lillie=yang`를 검색하였지만, 요청이 보내지기 전에 `who%26lillie%3Dyang`으로 인코딩된 값이 전송된 것을 알 수 있다.
+
+참고로, `UTF-8`로 인코딩이 되며, 이는 `encodeURIComponent` 함수에 값을 넣어보면, 인코딩된 값을 확인할 수 있다.
+
+```bash
+> encodeURIComponent('who&lillie=yang')
+'who%26lillie%3Dyang'
+```
+
+이렇게 **인코딩해서 전송해야 하는 이유는 사용자가 입력한 값과 URL의 요소의 구분자(delimiter)를 구별해야하기 때문**이다.
+
+만약, 인코딩하지 않았다면 다음과 같이 전송이 되었을 것이다.
+
+이 파라미터를 분석하면, assetName에 대한 value는 who가 되고, lillie라는 key에 value는 yang이 된다.
+
+```
+?assetType=AD_ACCOUNT&assetName=who&lillie=yang&size=30
+```
+
+이렇듯 의도하지 않게 파라미터가 해석되는 문제를 막기 위해, 파라미터를 인코딩해야 하는 것이다.
+
+다시 문제로 돌아와서...
+
+`encodeURIComponent` 함수는 아래 특수문자를 제외한 문자를 이스케이프한다고 한다.
+
+```
+A-Z a-z 0-9 - _ . ! ~ * ' ( )
+```
+
+그렇다면 대괄호도 아래와 같이 인코딩이 되어야 할텐데, axios를 통해 전송된 대괄호는 인코딩이 되지 않고 있었다.
+
+(대괄호가 근본적으로 인코딩되어야 하는 이유는 아래 '새롭게 알게된 점'에서 더 추가하였다.)
+
+```bash
+> encodeURIComponent('[]')
+'%5B%5D'
+```
+
+# 🔍 원인
+
+이 이슈는 axios의 깃헙 이슈에서도 찾아볼 수 있었다.
+
+[https://github.com/axios/axios/issues/3316](https://github.com/axios/axios/issues/3316)
+
+[https://github.com/axios/axios/issues/2510](https://github.com/axios/axios/issues/2510)
+
+[axios 코드 레벨](https://github.com/axios/axios/blob/master/lib/helpers/buildURL.js#L5)에서 살펴보니, encodeURIComponent로 인코딩한 뒤, 인코딩한 값을 다시 원래의 대괄호로 변경해주고 있었다.
+
+```jsx
+function encode(val) {
+  return encodeURIComponent(val).
+  replace(/%3A/gi, ':').
+  replace(/%24/g, '$').
+  replace(/%2C/gi, ',').
+  replace(/%20/g, '+').
+  replace(/%5B/gi, '[').
+  replace(/%5D/gi, ']');
+}
+```
+
+# 💉해결
+
+다시 axios의 buildURL.js를 보자.
+
+세 번째 인자로 `paramsSerializer`를 전달하게 된다면, encode 함수로 인코딩하지 않고, `paramsSerializer`를 그냥 호출해서 serialize를 하는 것을 알 수 있다.
+
+```jsx
+/**
+ * Build a URL by appending params to the end
+ *
+ * @param {string} url The base of the url (e.g., http://www.google.com)
+ * @param {object} [params] The params to be appended
+ * @returns {string} The formatted url
+ */
+module.exports = function buildURL(url, params, paramsSerializer) {
+  /*eslint no-param-reassign:0*/
+  if (!params) {
+    return url;
+  }
+
+  var serializedParams;
+  if (paramsSerializer) {
+    serializedParams = paramsSerializer(params);
+  } else if (utils.isURLSearchParams(params)) {
+    serializedParams = params.toString();
+  } else {
+...
+  }
+  ...
+  return url;
+}
+
+```
+
+[https://github.com/axios/axios/blob/master/lib/helpers/buildURL.js#L29](https://github.com/axios/axios/blob/master/lib/helpers/buildURL.js#L29)
+
+세 번째에 넣을 수 있는 `paramsSerializer`는 axios의 request config 객체에서 지정할 수 있는 값이다.
+
+```jsx
+  // `paramsSerializer` is an optional function in charge of serializing `params`
+  // (e.g. https://www.npmjs.com/package/qs, http://api.jquery.com/jquery.param/)
+  paramsSerializer: function (params) {
+    return Qs.stringify(params, {arrayFormat: 'brackets'})
+  },
+```
+
+따라서, encodeURIComponent로 query value를 인코딩하는 paramsSerializer 함수를 지정하여 해결하였다.
+
+```jsx
+
+const config = {
+  url,
+  method,
+  params,
+  paramsSerializer (params) {
+		return `${Object.entries(queryObject)
+    .map(([queryName, queryValue]) => `${queryName}=${encodeURIComponent(queryValue ?? '')}`)
+    .join('&')}`
+  },
+  data,
+  ...options,
+};
+const api = createInstance();
+api.request(config);
+```
+
+다시 대괄호를 넣어서 검색을 해보면, 대괄호도 인코딩이 되었고, 그 검색에 대한 결과 또한 제대로 오는 것을 확인할 수 있었다.
+
+# 💡새롭게 알게된 점
+
+## 대괄호가 URI의 authority 에서는 예약어이다.
+
+대괄호는 URI에서 예약어 (reserved characters) 였다.
+
+```jsx
+reserved    = gen-delims / sub-delims
+
+gen-delims  = ":" / "/" / "?" / "#" / "[" / "]" / "@"
+
+sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
+            / "*" / "+" / "," / ";" / "="
+```
+
+[URI에 대한 RFC3986의 3.2.2 Host](https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.2)를 보면, 이런 안내가 적혀있다.
+
+> A host identified by an Internet Protocol literal address, version 6
+   [RFC3513] or later, is distinguished by enclosing the IP literal
+   within square brackets ("[" and "]").  This is the only place where
+   square bracket characters are allowed in the URI syntax.
+> 
+
+해석해보면, URI에서 유일하게 대괄호가 위치할 수 있는 곳은 `Host` 영역에 `IP-literal` (IPv6나 그 이상의 버전)이 올 때, IP-literal의 바깥을 감싸는 곳 뿐이라는 것이다.
+
+![Sheep-Screenshot 2022-02-25 PM 10.57.39.png](/static/images/axios-does-not-encode-square-bracket/Sheep-Screenshot_2022-02-25_PM_10.57.39.png)
+
+URI는 scheme(protocol), authority, port, path, query, fragment 로 구성될 수 있다. (모두 필수는 아니다.)
+
+```
+authority   = [ userinfo "@" ] host [ ":" port ]
+```
+
+여기서 슬래쉬 두개 (//)로 시작하는 구간이, `authority`이고, 그 안의 구성요소인 `userinfo`와 `port` 사이에 있는 컴포넌트가 `host`이다.
+
+이 host에는 흔히 business.kakao.com과 같은 도메인 네임이 들어가지만, ip주소가 들어갈 수도 있다.
+
+host의 ipv6 주소가 들어간다면, 반드시 양쪽을 대괄호로 감싸주어야 한다.
+
+```
+https://[2001:470:30:84:e276:63ff:fe72:3900]/blog/urls.html
+```
+
+**👉  host에서 IPv6를 감싸주는 곳이 아닌 곳에 대괄호가 들어가면 안되므로, query에 대괄호를 넣어주겠다면 반드시 인코딩을 해주어야 하는 것이다.**
+
+## axios 1.0.0을 기대해보자
+
+axios 1.0.0-beta.1 브랜치에서는 대괄호를 인코딩해주고 있다.
+
+1.0.0 버전이 릴리즈 된다면, 더이상 이 문제에 대해 고민하지 않아도 될 수 있을지도...?
+
+[https://github.com/axios/axios/blob/release/1.0.0-beta.1/lib/helpers/buildURL.js#L5](https://github.com/axios/axios/blob/release/1.0.0-beta.1/lib/helpers/buildURL.js#L5)
+
+# 🌊 더 개선한다면 ?
+
+## 파라미터의 key도 인코딩하기
+
+axios의 코드를 보면, 파라미터의 key도 인코딩을 해주는 것을 확인할 수 있다.
+
+```javascript
+parts.push(encode(key) + '=' + encode(v));
+```
+
+[https://github.com/axios/axios/blob/master/lib/helpers/buildURL.js#L53](https://github.com/axios/axios/blob/master/lib/helpers/buildURL.js#L53)
+
+앞서서, 사용자가 입력한 값과 URI의 구분자를 구별해내기 위해 query를 인코딩해주어야 한다고 말했는데,
+
+이는 파라미터의 key에도 해당되는 이야기였다.
+
+현재는 파라미터의 key에 URI 구분자가 들어가는 경우가 없어서 인코딩을 해주지 않아도 에러가 나지 않는다.
+
+그러나, 추후에는 API 스펙이 어떻게 될지 알 수 없으므로, querystring 에 의해 에러가 발생할 수 있는 부분인 것 같다.
+
+파라미터의 key를 encodeURIComponent로 인코딩해주어서 더 안전하게 만들 수 있을 것 같다.
+
+```jsx
+const config = {
+  url,
+  method,
+  params,
+  paramsSerializer (params) {
+		return `${Object.entries(queryObject)
+    .map(([queryName, queryValue]) => `${encodeURIComponent(queryName)}=${encodeURIComponent(queryValue ?? '')}`)
+    .join('&')}`
+  },
+  data,
+  ...options,
+};
+```
+
+# 🔗 참고
+
+- [https://developer.mozilla.org/en-US/docs/Learn/Common_questions/What_is_a_URL](https://developer.mozilla.org/en-US/docs/Learn/Common_questions/What_is_a_URL)
+- [https://doepud.co.uk/anatomy-of-a-url](https://doepud.co.uk/anatomy-of-a-url)
+- [https://github.com/axios/axios/blob/master/lib/helpers/buildURL.js](https://github.com/axios/axios/blob/master/lib/helpers/buildURL.js)
+- [https://www.netmeister.org/blog/urls.html](https://www.netmeister.org/blog/urls.html)
+- [https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.2](https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.2)
