@@ -24,7 +24,13 @@ module.exports = {
         sans: ['Noto Sans KR', ...defaultTheme.fontFamily.sans],
       },
       colors: {
-        primary: colors.teal,
+        primary: {
+          300: '#b5cdff',
+          400: '#9cbbff',
+          500: '#82AAFF',
+          600: '#6999ff',
+          700: '#3676ff',
+        },
         gray: colors.trueGray,
       },
       typography: (theme) => ({
@@ -32,11 +38,11 @@ module.exports = {
           css: {
             color: theme('colors.gray.700'),
             a: {
-              color: theme('colors.primary.500'),
+              color: theme('colors.primary.600'),
               '&:hover': {
-                color: theme('colors.primary.600'),
+                color: theme('colors.primary.700'),
               },
-              code: { color: theme('colors.primary.400') },
+              code: { color: theme('colors.primary.500') },
             },
             h1: {
               fontWeight: '700',
@@ -97,11 +103,11 @@ module.exports = {
           css: {
             color: theme('colors.gray.100'),
             a: {
-              color: theme('colors.primary.500'),
+              color: theme('colors.primary.600'),
               '&:hover': {
-                color: theme('colors.primary.400'),
+                color: theme('colors.primary.300'),
               },
-              code: { color: theme('colors.primary.400') },
+              code: { color: theme('colors.primary.300') },
             },
             h1: {
               fontWeight: '700',
