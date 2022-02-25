@@ -21,10 +21,16 @@ module.exports = {
         14: '3.5rem',
       },
       fontFamily: {
-        sans: ['Inter', ...defaultTheme.fontFamily.sans],
+        sans: ['Noto Sans KR', ...defaultTheme.fontFamily.sans],
       },
       colors: {
-        primary: colors.teal,
+        primary: {
+          300: '#b5cdff',
+          400: '#9cbbff',
+          500: '#82AAFF',
+          600: '#6999ff',
+          700: '#3676ff',
+        },
         gray: colors.trueGray,
       },
       typography: (theme) => ({
@@ -32,11 +38,11 @@ module.exports = {
           css: {
             color: theme('colors.gray.700'),
             a: {
-              color: theme('colors.primary.500'),
+              color: theme('colors.primary.600'),
               '&:hover': {
-                color: theme('colors.primary.600'),
+                color: theme('colors.primary.700'),
               },
-              code: { color: theme('colors.primary.400') },
+              code: { color: theme('colors.primary.500') },
             },
             h1: {
               fontWeight: '700',
@@ -49,7 +55,7 @@ module.exports = {
               color: theme('colors.gray.900'),
             },
             h3: {
-              fontWeight: '600',
+              fontWeight: '500',
               color: theme('colors.gray.900'),
             },
             'h4,h5,h6': {
@@ -80,7 +86,7 @@ module.exports = {
             },
             hr: { borderColor: theme('colors.gray.200') },
             'ol li:before': {
-              fontWeight: '600',
+              fontWeight: '500',
               color: theme('colors.gray.500'),
             },
             'ul li:before': {
@@ -95,13 +101,13 @@ module.exports = {
         },
         dark: {
           css: {
-            color: theme('colors.gray.300'),
+            color: theme('colors.gray.100'),
             a: {
               color: theme('colors.primary.500'),
               '&:hover': {
-                color: theme('colors.primary.400'),
+                color: theme('colors.primary.300'),
               },
-              code: { color: theme('colors.primary.400') },
+              code: { color: theme('colors.primary.300') },
             },
             h1: {
               fontWeight: '700',
@@ -114,7 +120,7 @@ module.exports = {
               color: theme('colors.gray.100'),
             },
             h3: {
-              fontWeight: '600',
+              fontWeight: '500',
               color: theme('colors.gray.100'),
             },
             'h4,h5,h6': {
@@ -128,13 +134,13 @@ module.exports = {
             },
             hr: { borderColor: theme('colors.gray.700') },
             'ol li:before': {
-              fontWeight: '600',
+              fontWeight: '500',
               color: theme('colors.gray.400'),
             },
             'ul li:before': {
               backgroundColor: theme('colors.gray.400'),
             },
-            strong: { color: theme('colors.gray.100') },
+            strong: { color: theme('colors.gray.50') },
             thead: {
               color: theme('colors.gray.100'),
             },
