@@ -21,7 +21,7 @@ module.exports = {
         14: '3.5rem',
       },
       fontFamily: {
-        sans: ['Inter', ...defaultTheme.fontFamily.sans],
+        sans: ['Noto Sans KR', ...defaultTheme.fontFamily.sans],
       },
       colors: {
         primary: colors.teal,
@@ -49,7 +49,7 @@ module.exports = {
               color: theme('colors.gray.900'),
             },
             h3: {
-              fontWeight: '600',
+              fontWeight: '500',
               color: theme('colors.gray.900'),
             },
             'h4,h5,h6': {
@@ -80,7 +80,7 @@ module.exports = {
             },
             hr: { borderColor: theme('colors.gray.200') },
             'ol li:before': {
-              fontWeight: '600',
+              fontWeight: '500',
               color: theme('colors.gray.500'),
             },
             'ul li:before': {
@@ -114,7 +114,7 @@ module.exports = {
               color: theme('colors.gray.100'),
             },
             h3: {
-              fontWeight: '600',
+              fontWeight: '500',
               color: theme('colors.gray.100'),
             },
             'h4,h5,h6': {
@@ -128,7 +128,7 @@ module.exports = {
             },
             hr: { borderColor: theme('colors.gray.700') },
             'ol li:before': {
-              fontWeight: '600',
+              fontWeight: '500',
               color: theme('colors.gray.400'),
             },
             'ul li:before': {
