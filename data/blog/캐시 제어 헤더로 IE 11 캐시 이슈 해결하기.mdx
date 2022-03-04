@@ -1,0 +1,240 @@
+---
+title: 캐시 제어 헤더로 IE 11 캐시 이슈 해결하기
+date: 'Sat Mar 05 2022 05:33:04 GMT+0900'
+tags: ['Network', 'HTTP', 'axios', 'cache']
+draft: false
+summary: 'HTTP 스터디한 보람이 있네요'
+authors: []
+---
+
+
+# 📨 캐시로부터 응답이 오고 있다
+
+서비스의 QA 첫 날... IE 11에서 발생하는 티켓 이슈가 도착하였다. 📨
+
+<br />
+
+기대하는 결과는 ‘초대중’이던 유저를 초대 취소한 뒤, 그 유저가 삭제된 리스트를 보는 것이다.
+
+그러나, 초대 취소 후에도 그 유저는 여전히 리스트에 남아 ‘초대중'으로 표시되고 있는 이슈였다. 
+
+크롬에서는 재현되지 않고, IE 에서만 발생하는 이슈였다.
+
+<br />
+
+티켓만 봐서는 전혀 감이 오지 않아서, IE부터 열어보았다.
+
+로그인부터가 안되었다. 
+
+로그인을 해도 해도 계속 로그인창으로 들어왔다...?!???!
+
+로그인 체크 로직을 지우고 어거지로 들어왔다.
+
+이상하지만... 애써 무시하고 넘어간다. 
+
+<br />
+
+일단 초대 취소 요청부터가 보내지는지를 확인하기 위해, IE의 네트워크 창을 열어보았다.
+
+초대를 취소하는 PUT API는 잘 전송되고 있었고, 그에 대한 서버의 응답도 정상적으로 오는 것을 확인할 수 있었다.
+
+<br />
+
+문제는 초대 취소 후 리스트를 불러오는 GET API의 응답에 있었다.
+
+그 응답에는 초대 취소를 했음에도 여전히 그 사용자의 데이터가 내려오고 있었다.
+
+그리고, 이 GET API의 `받은 날짜` 칼럼에 `시작 캐시` 라는 단어가 쓰여있었다.
+
+![Sheep-Screenshot 2022-03-05 AM 12.04.40.png](/static/images/axios-does-not-encode-square-bracket/Sheep-Screenshot_2022-03-05_AM_12.04.40.png)
+
+캐시라는 말이 있어서, 캐시 문제인 것인지가 의심되었다.
+
+<br />
+
+캐시인 것 같긴 하지만... IE 개발자 도구가 너무 낯설었기에 이 `시작 캐시`라는 것이 무엇을 의미하는지부터 살펴보았다.
+
+아래 사이트를 발견하였는데, IE11 개발자 도구에 대해 알아보는데 큰 도움을 받았다. 👍👍👍
+
+[IE11을 이용한 JavaScript 디버깅 10, F12 개발자 도구 네트워크 창 Part 1](http://www.egocube.pe.kr/lecture/content/html-javascript/201903190001)
+
+<br />
+
+> 전송 내역 목록의 **'받은 날짜'**라는 컬럼명과 **'(시작 캐시)'**라는 용어는 각각 **'Received'**와 **'(from cache)'**
+의 오역입니다. 실제로는 **'수신'**이나 **'받음'**, 그리고 **'(캐시로부터 가져옴)'**정도가 적절한 번역일 것입니다. 잘못된 번역이 오히려 사용자를 혼란스럽게 만드는 대표적인 사례로 볼 수 있을 것입니다.
+> 
+
+‘받은 날짜’는 ‘Received’이고, ‘(시작 캐시)’는 ‘(from cache)’라는 의미라고 한다.
+
+오, 그럼 캐시로부터 가져온 것이 맞았다.
+
+리소스가 캐시로부터 온 것인지는 ‘타이밍' 탭에서 확인하면 더 확실히 알 수 있었다.
+
+![Sheep-Screenshot 2022-02-08 PM 11.14.14.png](/static/images/axios-does-not-encode-square-bracket/Sheep-Screenshot_2022-02-08_PM_11.14.14.png)
+
+즉, cacel이라는 초대 취소 POST API를 보내기 전의 리스트 요청에 대한 응답이 캐시에 저장되었고, 
+
+초대 취소 후에 리스트를 다시 요청했을 땐, 캐시된 리소스가 응답으로 오고 있었던 것이다.
+
+그래서, 화면상으로는 여전히 삭제된 데이터가 응답에 포함되어 ‘초대중’으로 보이고 있었다.
+
+# IE11과 캐시
+
+크롬과 달리 IE11에서 캐시된 응답을 준 이유가 있었다.
+
+<br />
+
+IE11은 첫 GET 요청에 대해서만 서버로 부터 받은 리소스를 응답한다.
+
+**그 이후로, 같은 URL에 대한 GET 요청은 캐시에 저장된 리소스를 응답하게 된다.**
+
+<br />
+
+이에 대한 해결책은 여러 가지가 있었다. (URL에 time stamp와 같은 값을 붙인다, POST method로 요청을 보낸다, 등등)
+
+가장 나이스한 IE11의 캐시 이슈 해결은 요청 헤더를 통해 캐시를 제어하는 것이라고 생각한다. 
+
+<br /> 
+
+캐시로부터 응답이 오지 않게 해야했다.
+
+작년(2020년) 셀원들과 스터디에서 함께 훑어봤던 HTTP 완벽가이드 책을 펼쳐보았다.
+
+<br />
+
+# ⚔️ HTTP 헤더로, 캐시를 제어하자!
+
+캐시 제어는 HTTP의 요청이나 응답 헤더를 통해 할 수 있다. 
+
+캐시 제어 헤더로 `Cache-Control` , `Expires` , `Vary`가 있다.
+
+이 중에서 `Cache-Control`은 요청 헤더와 응답 헤더 둘 다에 설정할 수 있는 헤더이고,
+
+`Expires`와 `Vary`헤더는 응답 헤더에서만 설정할 수 있는 헤더이다.
+
+<br />
+
+서버에서는 따로 캐시 설정을 해두신게 없었으므로, ‘클라이언트’에서 캐시를 제어할 수 있는 Cache-Control 헤더헤더와 그 값에 대해서 정리해보았다. 
+
+## Cache-Control 헤더
+
+Cache-Control 헤더에 들어갈 수 있는 값은 요청 헤더일 경우와 응답 헤더일 경우가 다르다.
+
+- 요청 헤더의 Cache-Control일 때 가능한 값
+    - max-age, max-stale, min-fresh, no-cache, no-store, no-transform, only-if-cached, stale-if-error
+- 응답 헤더의 Cache-Control일 때 가능한 값
+    - max-age, s-maxage, no-cache, no-store, no-transform, must-revalidate, proxy-revalidate, must-understand, private, public, immutable, stale-while-revalidate, stale-if-error
+
+여기서 가장 대표적으로 요청 헤더에서 캐시를 제어할 수 있는 `max-age`, `no-cache`, `no-store` 에 대해 알아보자.
+
+### max-age=N
+
+```
+Cache-Control: max-age=3600
+```
+
+- `max-age`는 리소스가 원 서버(origin server)로부터 생성된지 N‘초' 이내라면, 캐시 서버로부터 캐시된 리소스를 받겠다는 의미이다. N초를 넘어가면, stale resource라고 판단하고, 원 서버로부터 리소스가 변경되었는지를 다시 물어봐야 한다. 이를 `재검사`(revalidation)이라고 한다.
+- N초 이내에 있는지는 `Age` 응답 헤더를 통해 알 수 있다.
+    
+    Age 헤더는 리소스가 캐시 서버에 머문지 몇 ‘초'가 지났는지를 나타내는 값이다. 말 그대로 생성된 시간으로 부터의 ‘나이'를 의미한다. 만약, Age:0 이면, 그 리소스는 원 서버로부터 온 리소스일 것이다.
+    
+- `max-age=0`으로 설정하면, `no-cache`  의 의미가 되어, 캐시는 매 요청마다 서버로부터 재검사를 받아야하다.
+
+### no-cache
+
+```
+Cache-Control: no-store
+```
+
+- `no-cache`는 캐시 서버가 캐시된 리소스를 클라이언트에게 응답하기 전에, 반드시 원 서버로부터 재검사를 받아야 한다는 의미이다.
+    
+    캐시를 하지 않겠다는 의미가 아니다. 단지, 캐시서버에서 바로 응답을 보낼 수는 없고, 원 서버로부터 재검사를 받은 후에야 응답을 보낼 수 있다는 의미이다. 
+    
+
+### no-store
+
+```
+Cache-Control: no-store
+```
+
+- `no-store` 가 진정으로 캐시 서버가 리소스를 저장할 수 없다는 의미이다.
+
+<br />
+
+no-cache, no-store, max-age=0으로 캐시된 값을 가져오지 않거나 반드시 서버로부터 재검사가 된 프레쉬한 리소스를 받을 수 있다는 것을 알게 되었다. 
+
+이젠, 실전이다. 
+
+axios에서 header에 Cache-Control의 값을 no-cache, no-store, max-age=0 로 하나씩 설정해보았다.
+
+```javascript
+const instance = axios.create({
+  headers: {'Cache-Control': 'no-store'}
+});
+```
+
+그리고 여전히... IE11은 캐시된 응답을 가져오고 있었다. 😀 
+
+## Pragma : no-cache
+
+답은 `Pragma` 헤더에 있었다. 
+
+```
+Pragma: no-cache
+```
+
+`Pragma` 는 HTTP/1.0 헤더로, HTTP/1.1의 `Cache-Control` 헤더가 생기기 전에 사용되었다.
+
+그 의미는 `Cache-Control:no-cache`와 같아서, 캐시 서버는 응답을 보내기 전에 반드시 원 서버로부터 재검사를 받아야 한다.
+
+이렇게 axios 헤더에 `Pragma:no-cache` 설정을 함으로써 IE11에서 항상 새로운 응답을 받아낼 수 있었다. 👍
+
+```javascript
+const instance = axios.create({
+  headers: {'Pragma': 'no-cache'}
+});
+```
+
+---
+
+사실 어디서 HTTP/1.0을 거치고 있는지 궁금해서 curl을 사용해서 vervose나 TRACE method로 파악하고 싶었으나, HTTP/1.0을 사용하는 쪽을 찾지 못하였다. 이 부분은 아쉽다. 
+
+<br />
+
+IE11의 구현에 대해 공식적으로 설명된 자료도 찾을 수 없었다. 그나마 블로그나 stackoverflow에 이 IE11 캐싱 이슈에 대해 설명한 부분은 찾을 수 있었다.
+
+<br />
+
+Pragma 설정을 하고 나니, 로그인이 안되던 이슈도 해결되었다.
+
+프론트에서는 로그인 여부를 알기 위해, 서버에 GET 요청을 보냈다. 그 응답이 false라면, 로그인 페이지로 리다이렉트 시키는 방식이다.
+
+Pragma 설정 전에는 로그인 후 다시 프론트로 돌아왔을 때 서버의 응답은 캐시로부터 왔기 때문에 계속 false였을 것이다. 그렇기에 로그인을 하였어도 계속해서 로그인 페이지로 넘어가게된 것이다.
+
+앞으로는 IE11에서 로그인이 안되면 캐시를 의심해볼 것 같다. 
+
+<br />
+
+이렇게 첫 날 IE11 QA 이슈는 해결했다 😎
+
+# 🔗 Reference
+
+[http://www.egocube.pe.kr/lecture/content/html-javascript/201903190001](http://www.egocube.pe.kr/lecture/content/html-javascript/201903190001)
+
+[https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control#cache_directives)
+
+[https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Pragma](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Pragma)
+
+[https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Age](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Age)
+
+[https://cherniavskii.com/internet-explorer-requests-caching/](https://cherniavskii.com/internet-explorer-requests-caching/)
+
+[https://github.com/jhipster/generator-jhipster/issues/777](https://github.com/jhipster/generator-jhipster/issues/777)
+
+[https://stackoverflow.com/questions/45912500/reactjs-ie11-not-making-new-http-request-using-cached-data](https://stackoverflow.com/questions/45912500/reactjs-ie11-not-making-new-http-request-using-cached-data)
+
+[https://effortguy.tistory.com/36](https://effortguy.tistory.com/36)
+
+[https://yceffort.kr/2020/10/http-cache](https://yceffort.kr/2020/10/http-cache)
+
+[https://developpaper.com/browser-cache-policy/](https://developpaper.com/browser-cache-policy/)
