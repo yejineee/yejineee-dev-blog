@@ -78,7 +78,7 @@ authors: []
 
 그래서, 화면상으로는 여전히 삭제된 데이터가 응답에 포함되어 ‘초대중’으로 보이고 있었다.
 
-# IE11과 캐시
+# 🤘 IE11이 GET 요청을 대하는 자세
 
 크롬과 달리 IE11에서 캐시된 응답을 준 이유가 있었다.
 
@@ -175,9 +175,11 @@ const instance = axios.create({
 
 그리고 여전히... IE11은 캐시된 응답을 가져오고 있었다. 😀 
 
-## Pragma : no-cache
+# 💉 해결 
 
-답은 `Pragma` 헤더에 있었다. 
+돌고 돌아 해결책은 HTTP/1.0 헤더인 `Pragma` 헤더에 있었다. 
+
+## Pragma : no-cache
 
 ```
 Pragma: no-cache
@@ -216,6 +218,8 @@ Pragma 설정 전에는 로그인 후 다시 프론트로 돌아왔을 때 서�
 <br />
 
 이렇게 첫 날 IE11 QA 이슈는 해결했다 😎
+
+<br />
 
 # 🔗 Reference
 
