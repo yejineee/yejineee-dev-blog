@@ -46,7 +46,7 @@ authors: []
 
 그리고, 이 GET API의 `받은 날짜` 칼럼에 `시작 캐시` 라는 단어가 쓰여있었다.
 
-![Sheep-Screenshot 2022-03-05 AM 12.04.40.png](/static/images/axios-does-not-encode-square-bracket/Sheep-Screenshot_2022-03-05_AM_12.04.40.png)
+![Sheep-Screenshot 2022-03-05 AM 12.04.40.png](/static/images/ie11-cache-issue/Sheep-Screenshot_2022-03-05_AM_12.04.40.png)
 
 캐시라는 말이 있어서, 캐시 문제인 것인지가 의심되었다.
 
@@ -70,7 +70,7 @@ authors: []
 
 리소스가 캐시로부터 온 것인지는 ‘타이밍' 탭에서 확인하면 더 확실히 알 수 있었다.
 
-![Sheep-Screenshot 2022-02-08 PM 11.14.14.png](/static/images/axios-does-not-encode-square-bracket/Sheep-Screenshot_2022-02-08_PM_11.14.14.png)
+![Sheep-Screenshot 2022-02-08 PM 11.14.14.png](/static/images/ie11-cache-issue/Sheep-Screenshot_2022-02-08_PM_11.14.14.png)
 
 즉, cacel이라는 초대 취소 POST API를 보내기 전의 리스트 요청에 대한 응답이 캐시에 저장되었고, 
 
